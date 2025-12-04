@@ -226,17 +226,8 @@ class AudioManager:
             return None
 
     def download_file(self, job_id: str) -> Optional[bytes]:
-        """Download audio by clicking the Download button in the UI.
-
-        Args:
-            job_id: The job ID of the audio to download.
-
-        Returns:
-            Binary audio data or None if download failed.
-        """
-        import tempfile
+        """Download audio - files are now local on the same machine."""
         import os
-        import shutil
 
         try:
             index = int(job_id) - 1
@@ -244,20 +235,16 @@ class AudioManager:
             logger.error("Invalid job_id: %s", job_id)
             return None
 
-        # Create temp directory for download
-        download_dir = tempfile.mkdtemp(prefix="nlm_download_")
+        download_dir = "/home/chromeuser/Downloads"
+
+        # Clear old files
+        try:
+            for f in os.listdir(download_dir):
+                os.remove(os.path.join(download_dir, f))
+        except Exception:
+            pass
 
         try:
-            logger.info("Downloading job %s to %s", job_id, download_dir)
-
-            # Set up CDP download behavior on current page
-            cdp = self.page.context.new_cdp_session(self.page)
-            cdp.send("Page.setDownloadBehavior", {
-                "behavior": "allow",
-                "downloadPath": download_dir,
-            })
-
-            # Find the audio item
             parent = self.page.locator("artifact-library")
             items = parent.locator(":scope > *")
             count = items.count()
@@ -272,7 +259,6 @@ class AudioManager:
             except Exception:
                 pass
 
-            # Click More button
             more_btn = item.locator(
                 f"button[aria-label='{self._get_text('more_button')}']"
             ).first
@@ -284,9 +270,9 @@ class AudioManager:
             more_btn.click()
             self.page.wait_for_timeout(500)
 
-            # Click Download menu item
             download_text = self._get_text("download_menu_item")
-            download_menu = self.page.get_by_role("menuitem", name=download_text).first
+            download_menu = self.page.get_by_role(
+                "menuitem", name=download_text).first
 
             if not download_menu.is_visible():
                 logger.error("Download menu not found")
@@ -296,8 +282,8 @@ class AudioManager:
             logger.info("Clicking Download...")
             download_menu.click()
 
-            # Wait for file to appear
-            logger.info("Waiting for download...")
+            # Wait for file to appear locally
+            logger.info("Waiting for file in %s...", download_dir)
             timeout = 120
             start_time = time.time()
             downloaded_file = None
@@ -321,22 +307,29 @@ class AudioManager:
                 time.sleep(0.5)
 
             if not downloaded_file:
-                files = os.listdir(download_dir) if os.path.exists(download_dir) else []
-                logger.error("Download timed out. Files: %s", files)
+                logger.error("Download timed out")
                 return None
 
+            # Read directly from local filesystem
             with open(downloaded_file, "rb") as f:
                 body = f.read()
 
-            logger.info("Download complete: %d bytes", len(body))
+            logger.info("Downloaded %d bytes from %s",
+                        len(body), downloaded_file)
+
+            # Cleanup
+            try:
+                os.remove(downloaded_file)
+            except Exception:
+                pass
+
             return body
 
         except Exception as e:
-            logger.error("Failed to download: %s", e)
+            logger.error("Download failed: %s", e)
+            import traceback
+            traceback.print_exc()
             return None
-
-        finally:
-            shutil.rmtree(download_dir, ignore_errors=True)
 
     def clear_studio(self) -> Dict[str, Any]:
         """Delete all generated audio items."""
