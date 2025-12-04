@@ -226,7 +226,7 @@ class AudioManager:
             return None
 
     def download_file(self, job_id: str) -> Optional[bytes]:
-        """Download audio by clicking the Download button in the UI."""
+        """Download audio by clicking download and waiting for file."""
         import os
 
         try:
@@ -235,10 +235,9 @@ class AudioManager:
             logger.error("Invalid job_id: %s", job_id)
             return None
 
-        download_dir = os.environ.get(
-            "DOWNLOAD_DIR", "/home/chromeuser/Downloads")
+        download_dir = os.environ.get("DOWNLOAD_DIR", "/tmp/shared-downloads")
 
-        # Get list of files BEFORE download (don't delete them!)
+        # Get files BEFORE download
         try:
             files_before = set(os.listdir(download_dir))
         except Exception:
@@ -280,10 +279,11 @@ class AudioManager:
                 return None
 
             logger.info("Clicking Download...")
+            # Just click - don't use expect_download!
             download_menu.click()
 
-            # Wait for NEW file to appear
-            logger.info("Waiting for new file in %s...", download_dir)
+            # Wait for NEW file to appear in download folder
+            logger.info("Waiting for file in %s...", download_dir)
             timeout = 120
             start_time = time.time()
             downloaded_file = None
@@ -291,7 +291,7 @@ class AudioManager:
             while time.time() - start_time < timeout:
                 try:
                     files_now = set(os.listdir(download_dir))
-                    new_files = files_now - files_before  # Only look at NEW files
+                    new_files = files_now - files_before
 
                     for f in new_files:
                         if f.endswith(".crdownload") or f.startswith("."):
@@ -310,7 +310,8 @@ class AudioManager:
                 time.sleep(0.5)
 
             if not downloaded_file:
-                logger.error("Download timed out")
+                logger.error("Download timed out. Files before: %s, Files now: %s",
+                             files_before, files_now if 'files_now' in dir() else 'unknown')
                 return None
 
             # Read the file
@@ -320,7 +321,7 @@ class AudioManager:
             logger.info("Downloaded %d bytes from %s",
                         len(body), downloaded_file)
 
-            # Only delete the file we just downloaded (not everything)
+            # Cleanup - delete only the file we downloaded
             try:
                 os.remove(downloaded_file)
             except Exception:
