@@ -226,7 +226,7 @@ class AudioManager:
             return None
 
     def download_file(self, job_id: str) -> Optional[bytes]:
-        """Download audio - files are now local on the same machine."""
+        """Download audio by clicking the Download button in the UI."""
         import os
 
         try:
@@ -235,14 +235,14 @@ class AudioManager:
             logger.error("Invalid job_id: %s", job_id)
             return None
 
-        download_dir = "/home/chromeuser/Downloads"
+        download_dir = os.environ.get(
+            "DOWNLOAD_DIR", "/home/chromeuser/Downloads")
 
-        # Clear old files
+        # Get list of files BEFORE download (don't delete them!)
         try:
-            for f in os.listdir(download_dir):
-                os.remove(os.path.join(download_dir, f))
+            files_before = set(os.listdir(download_dir))
         except Exception:
-            pass
+            files_before = set()
 
         try:
             parent = self.page.locator("artifact-library")
@@ -282,24 +282,27 @@ class AudioManager:
             logger.info("Clicking Download...")
             download_menu.click()
 
-            # Wait for file to appear locally
-            logger.info("Waiting for file in %s...", download_dir)
+            # Wait for NEW file to appear
+            logger.info("Waiting for new file in %s...", download_dir)
             timeout = 120
             start_time = time.time()
             downloaded_file = None
 
             while time.time() - start_time < timeout:
                 try:
-                    files = os.listdir(download_dir)
-                    for f in files:
+                    files_now = set(os.listdir(download_dir))
+                    new_files = files_now - files_before  # Only look at NEW files
+
+                    for f in new_files:
                         if f.endswith(".crdownload") or f.startswith("."):
                             continue
                         filepath = os.path.join(download_dir, f)
-                        if os.path.getsize(filepath) > 0:
+                        if os.path.isfile(filepath) and os.path.getsize(filepath) > 0:
                             downloaded_file = filepath
+                            logger.info("Found new file: %s", f)
                             break
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Error listing dir: %s", e)
 
                 if downloaded_file:
                     time.sleep(1)  # Ensure write complete
@@ -310,14 +313,14 @@ class AudioManager:
                 logger.error("Download timed out")
                 return None
 
-            # Read directly from local filesystem
+            # Read the file
             with open(downloaded_file, "rb") as f:
                 body = f.read()
 
             logger.info("Downloaded %d bytes from %s",
                         len(body), downloaded_file)
 
-            # Cleanup
+            # Only delete the file we just downloaded (not everything)
             try:
                 os.remove(downloaded_file)
             except Exception:
