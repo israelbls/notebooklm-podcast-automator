@@ -164,11 +164,14 @@ def download_audio_file(
 
     content, file_name, file_size = result
 
+    import re
+    safe_file_name = re.sub(r"[^A-Za-z0-9._-]+", "_", file_name)
+
     return Response(
         content=content,
         media_type="audio/mp4",
         headers={
-            "Content-Disposition": f"attachment; filename={file_name}",
+            "Content-Disposition": f"attachment; filename={safe_file_name}",
             "Content-Length": str(file_size),
         },
     )
