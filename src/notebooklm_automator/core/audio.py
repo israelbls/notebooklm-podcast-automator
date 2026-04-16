@@ -25,17 +25,21 @@ class AudioManager:
     ) -> str:
         """Generate an audio overview and return a job ID."""
         edit_icon = self.page.locator(
-            "mat-icon:has-text('edit'), mat-icon.edit-button-icon"
+            "mat-icon:has-text('chevron_forward'), "
+            "mat-icon.edit-button-icon, "
+            "mat-icon:has-text('edit')"
         ).first
         if not edit_icon.is_visible():
             edit_btn = self.page.locator(
+                "button:has(mat-icon.edit-button-icon), "
+                "button:has(mat-icon:has-text('chevron_forward')), "
                 "button:has(mat-icon:has-text('edit'))"
             ).first
             if edit_btn.is_visible():
                 edit_btn.click()
             else:
                 raise RuntimeError(
-                    "Could not find Edit/Pencil icon for Audio Overview"
+                    "Could not find Edit/Customize icon for Audio Overview"
                 )
         else:
             edit_icon.click(force=True)
