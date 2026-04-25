@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from notebooklm_automator.api.routes import router, get_automator
+from notebooklm_automator.api.routes import router, get_automator, _automator_instance
 
 
 @asynccontextmanager
@@ -13,8 +13,8 @@ async def lifespan(app: FastAPI):
     yield
 
     try:
-        automator = get_automator()
-        automator.close()
+        if _automator_instance:
+            _automator_instance.close()
     except Exception:
         pass
 

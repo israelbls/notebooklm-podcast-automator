@@ -99,7 +99,7 @@ class SourceManager:
             inp = self.page.locator("textarea[formcontrolname='newUrl']").first
             if inp.count() == 0 or not inp.is_visible():
                 inp = self.page.locator(
-                    "input[type='url'], input[placeholder*='http'], textarea[placeholder*='http'],"
+                    "input[type='url'], input[placeholder*='http'], textarea[placeholder*='Search the web for new sources']"
                 ).first
 
             if inp.count() == 0 or not inp.is_visible():
